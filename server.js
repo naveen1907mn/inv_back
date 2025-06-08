@@ -8,15 +8,46 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const app = express();
 
 // CORS configuration
+const allowedOrigins = [
+  'https://inv-front-azri.onrender.com',  // Your frontend URL
+  'http://localhost:3000'                 // Local development
+];
+
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://mern-inventory-frontend.onrender.com', 'http://localhost:3000']
-    : ['http://localhost:3000', 'https://inv-back-dbul.onrender.com'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 };
 
 app.use(cors(corsOptions));
+
+// Log CORS errors
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    console.error('CORS Error:', {
+      origin: req.headers.origin,
+      method: req.method,
+      path: req.path
+    });
+    return res.status(403).json({
+      error: 'CORS Error',
+      message: 'Not allowed by CORS policy',
+      origin: req.headers.origin
+    });
+  }
+  next(err);
+});
+
 app.use(express.json());
 
 // Root route handler
@@ -42,7 +73,10 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    cors: {
+      allowedOrigins
+    }
   });
 });
 
@@ -68,4 +102,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`📝 API Documentation available at http://localhost:${PORT}`);
+  console.log(`🌐 Allowed CORS origins:`, allowedOrigins);
 });
